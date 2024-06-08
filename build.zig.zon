@@ -1,0 +1,21 @@
+.{
+    .name = "sge",
+    .version = "0.0.1",
+
+    // .minimum_zig_version = "0.13.0",
+
+    .dependencies = .{
+        .raylib = .{
+            .url = "https://github.com/raysan5/raylib/archive/7b92b5bde77f857dbf25a2e0aaacb79f592c18b2.tar.gz",
+            .hash = "1220368025e5c145201810472d3688dfc50aed6a745da23dc4302ebc75d795ade5da",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
