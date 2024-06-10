@@ -23,7 +23,7 @@ pub fn build(b: *std.Build) void {
 
     const example = b.addExecutable(.{
         .name = "sge_example",
-        .root_source_file = b.path("src/example.zig"),
+        .root_source_file = b.path("src/example/example.zig"),
         .target = target,
         .optimize = optimize,
     });
