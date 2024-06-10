@@ -9,10 +9,7 @@ const raylib = @cImport({
 // TODO:
 // - GFX system
 // - Text class
-// - Scene system
 // - Logging system
-
-// Submodules --------------------------------------------------------------------------------------
 
 // Types -------------------------------------------------------------------------------------------
 
@@ -23,122 +20,119 @@ pub fn Vec2(T: type) type {
     };
 }
 
-const Vec2i = Vec2(i32);
-const Vec2f = Vec2(f32);
+pub const Vec2i = Vec2(i32);
+pub const Vec2f = Vec2(f32);
+
+pub const WindowProperties = struct {
+    size: Vec2i,
+    title: [:0]const u8,
+    target_fps: u16,
+
+    pub fn init(size: Vec2i, comptime title: [:0]const u8, target_fps: u16) WindowProperties {
+        return .{
+            .size = size,
+            .title = title,
+            .target_fps = target_fps,
+        };
+    }
+};
 
 // Variables and State -----------------------------------------------------------------------------
 
 pub var allocator: std.mem.Allocator = undefined;
+var window_properties: WindowProperties = undefined;
+var current_scene: ?Scene = null;
+var new_scene: ?Scene = null;
 
 // CORE --------------------------------------------------------------------------------------------
 
-pub fn init(alloc: std.mem.Allocator) void {
+pub fn init(alloc: std.mem.Allocator, win_props: WindowProperties) void {
     allocator = alloc;
+    window_properties = win_props;
     textures = std.ArrayList(TextureData).init(alloc); // GFX
     scenes = std.ArrayList(Scene).init(alloc); // SCENE
 }
 
 pub fn deinit() void {
     textures.deinit();
+    scenes.deinit();
 }
 
 pub fn run() !void {
-    raylib.InitWindow(1280, 720, "ASTEROIDS - Client");
+    raylib.InitWindow(window_properties.size.x, window_properties.size.y, window_properties.title);
     defer raylib.CloseWindow();
 
-    const raylib_logo = loadTexture("assets/raylib_96x96.png");
-    defer unloadTexture(raylib_logo) catch unreachable;
+    raylib.SetTargetFPS(window_properties.target_fps);
 
-    const title = Text.init("ASTEROIDS", 100);
-    const subtitle = Text.init("by calebrjc", 30);
-    const made_with = Text.init("made with", 30);
-    const version = Text.init("v0.0.1", 30);
-
-    const title_pos = Vec2i{
-        .x = @divTrunc(raylib.GetScreenWidth() - title.size.x, 2),
-        .y = @divTrunc(raylib.GetScreenHeight() - title.size.y, 2) - 25,
+    const placeholder_text = Text.init("SGE", 120);
+    const placeholder_text_pos = Vec2i{
+        .x = @divTrunc(raylib.GetScreenWidth() - placeholder_text.size.x, 2),
+        .y = @divTrunc(raylib.GetScreenHeight() - placeholder_text.size.y, 2),
     };
 
     while (!raylib.WindowShouldClose()) {
         // Update -------------------------------------------------------------
+        if (new_scene) |new| {
+            if (current_scene) |old| {
+                old.deinit();
+            }
 
-        // ...
+            current_scene = new;
+            new_scene = null;
+
+            current_scene.?.init();
+        }
+
+        if (current_scene) |scene| {
+            scene.update();
+        }
 
         // Draw ---------------------------------------------------------------
 
         raylib.BeginDrawing();
         defer raylib.EndDrawing();
 
-        raylib.ClearBackground(raylib.DARKGRAY);
+        if (current_scene) |scene| {
+            scene.draw();
+        } else {
+            clearBackground(Color.black);
 
-        drawText(title, title_pos, Color.ray_white);
+            drawText(placeholder_text, placeholder_text_pos, Color.ray_white);
+        }
+    }
 
-        drawText(
-            subtitle,
-            .{
-                .x = @divTrunc(raylib.GetScreenWidth() - subtitle.size.x, 2),
-                .y = title_pos.y + title.size.y,
-            },
-            Color.gray,
-        );
-
-        drawText(
-            made_with,
-            .{
-                .x = raylib.GetScreenWidth() - made_with.size.x - raylib_logo.size.x - 20,
-                .y = raylib.GetScreenHeight() - made_with.size.y - 10,
-            },
-            Color.gray,
-        );
-
-        drawTexture(
-            raylib_logo,
-            .{
-                .x = raylib.GetScreenWidth() - raylib_logo.size.x - 10,
-                .y = raylib.GetScreenHeight() - raylib_logo.size.y - 10,
-            },
-            Color.lime,
-        );
-
-        drawText(
-            version,
-            .{
-                .x = 10,
-                .y = raylib.GetScreenHeight() - version.size.y - 10,
-            },
-            Color.gray,
-        );
+    if (current_scene) |scene| {
+        scene.deinit();
+    } else {
+        // TODO(Caleb): Log that no scene was set
     }
 }
 
-fn update() void {
-    // ...
-}
-
-fn draw() void {
-    raylib.BeginDrawing();
-    defer raylib.EndDrawing();
-
-    raylib.ClearBackground(raylib.RAYWHITE);
-    raylib.DrawText("Congrats! You created your first window!", 190, 200, 20, raylib.DARKGRAY);
+pub fn getWindowProperties() WindowProperties {
+    return window_properties;
 }
 
 // GFX ---------------------------------------------------------------------------------------------
 
-const TextureID = u64;
+// Types -----------------------------------------------------------------------
 
-const Texture = struct {
-    id: TextureID,
+const GFXError = error{
+    InvalidTextureID,
+    TextureNotLoaded,
+};
+
+pub const Texture = struct {
+    id: u64,
     size: Vec2i,
 };
 
 const TextureData = struct {
-    id: TextureID,
+    id: u64,
     loaded: bool,
     data: raylib.Texture2D,
     size: Vec2i,
 
-    pub fn init(id: TextureID, data: raylib.Texture2D) TextureData {
+    pub fn init(id: u64, data: raylib.Texture2D) TextureData {
         return .{
             .id = id,
             .loaded = true,
@@ -148,7 +142,7 @@ const TextureData = struct {
     }
 };
 
-const Text = struct {
+pub const Text = struct {
     text: [:0]const u8,
     font_size: u16,
     size: Vec2i,
@@ -169,29 +163,11 @@ const Text = struct {
     }
 };
 
-const Color = struct {
+pub const Color = struct {
     r: u8,
     g: u8,
     b: u8,
     a: u8,
-
-    pub fn init(r: u8, g: u8, b: u8, a: u8) Color {
-        return .{
-            .r = r,
-            .g = g,
-            .b = b,
-            .a = a,
-        };
-    }
-
-    fn asRaylibColor(self: Color) raylib.Color {
-        return .{
-            .r = self.r,
-            .g = self.g,
-            .b = self.b,
-            .a = self.a,
-        };
-    }
 
     pub const light_gray = Color.init(200, 200, 200, 255);
     pub const gray = Color.init(130, 130, 130, 255);
@@ -219,14 +195,35 @@ const Color = struct {
     pub const blank = Color.init(0, 0, 0, 0);
     pub const magenta = Color.init(255, 0, 255, 255);
     pub const ray_white = Color.init(245, 245, 245, 255);
+
+    pub fn init(r: u8, g: u8, b: u8, a: u8) Color {
+        return .{
+            .r = r,
+            .g = g,
+            .b = b,
+            .a = a,
+        };
+    }
+
+    fn toRaylibColor(self: Color) raylib.Color {
+        return .{
+            .r = self.r,
+            .g = self.g,
+            .b = self.b,
+            .a = self.a,
+        };
+    }
 };
 
-const GFXError = error{
-    InvalidTextureID,
-    TextureNotLoaded,
-};
+// Variables -------------------------------------------------------------------
 
 var textures: std.ArrayList(TextureData) = undefined;
+
+// Functions -------------------------------------------------------------------
+
+pub fn clearBackground(color: Color) void {
+    raylib.ClearBackground(color.toRaylibColor());
+}
 
 pub fn loadTexture(comptime path: [:0]const u8) Texture {
     const raw_texture_data = raylib.LoadTexture(path);
@@ -254,11 +251,11 @@ pub fn drawTexture(texture: Texture, pos: Vec2i, tint: Color) void {
     const texture_data = textures.items[texture.id];
     if (!texture_data.loaded) return;
 
-    raylib.DrawTexture(texture_data.data, pos.x, pos.y, tint.asRaylibColor());
+    raylib.DrawTexture(texture_data.data, pos.x, pos.y, tint.toRaylibColor());
 }
 
 pub fn drawText(text: Text, pos: Vec2i, color: Color) void {
-    raylib.DrawText(text.text, pos.x, pos.y, text.font_size, color.asRaylibColor());
+    raylib.DrawText(text.text, pos.x, pos.y, text.font_size, color.toRaylibColor());
 }
 
 // SCENE -------------------------------------------------------------------------------------------
@@ -270,29 +267,22 @@ const SceneDrawFunction = *const fn () void;
 
 const Scene = struct {
     init: SceneInitFunction,
-    deinit: ?SceneDeinitFunction = null,
+    deinit: SceneDeinitFunction,
     update: SceneUpdateFunction,
     draw: SceneDrawFunction,
 };
 
+const SceneID = u64;
+
 var scenes: std.ArrayList(Scene) = undefined;
 
-// LOGGING -----------------------------------------------------------------------------------------
+pub fn registerScene(comptime scene: Scene) ?SceneID {
+    scenes.append(scene) catch return null;
+    return scenes.items.len - 1;
+}
 
-// EXAMPLES ----------------------------------------------------------------------------------------
+pub fn setScene(id: SceneID) void {
+    if (id >= scenes.items.len) return;
 
-// pub fn run_example_app(comptime str: []const u8) void {
-//     const title = std.fmt.comptimePrint("Example App: {s}", .{str});
-//     raylib.InitWindow(800, 450, title);
-//     defer raylib.CloseWindow();
-
-//     raylib.SetTargetFPS(60);
-
-//     while (!raylib.WindowShouldClose()) {
-//         raylib.BeginDrawing();
-//         defer raylib.EndDrawing();
-
-//         raylib.ClearBackground(raylib.RAYWHITE);
-//         raylib.DrawText("Congrats! You created your first window!", 190, 200, 20, raylib.DARKGRAY);
-//     }
-// }
+    new_scene = scenes.items[id];
+}
