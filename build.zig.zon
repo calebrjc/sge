@@ -1,8 +1,8 @@
 .{
-    .name = "sge",
-    .version = "0.0.1",
+    .name = "zge",
+    .version = "0.1.0",
 
-    // .minimum_zig_version = "0.13.0",
+    .minimum_zig_version = "0.13.0",
 
     .dependencies = .{
         .raylib = .{
