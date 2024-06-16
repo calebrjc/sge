@@ -3,7 +3,9 @@ const testing = std.testing;
 
 const c = @import("c.zig");
 
-// TODO(Caleb): Document the public API
+// TODO(Caleb)
+// - Document the public API
+// - Use Raylib's "core_window_letterbox" example to implement screen size independent rendering
 
 // NOTE(Caleb): Possible architecture plan:
 // - core
@@ -141,7 +143,7 @@ pub const Text = struct {
             c.GetFontDefault(),
             text,
             @floatFromInt(font_size),
-            @as(f32, @floatFromInt(font_size)) / 10, // c's default spacing between characters
+            @as(f32, @floatFromInt(font_size)) / 10, // Raylib's default spacing between characters
         );
 
         return .{
@@ -211,6 +213,10 @@ pub fn clearBackground(color: Color) void {
 pub fn loadTexture(comptime path: [:0]const u8) Texture {
     const raw_texture_data = c.LoadTexture(path);
     errdefer c.UnloadTexture(raw_texture_data);
+
+    // TODO(Caleb)
+    // Use the index of the first slot which is not loaded, or append to the list if no such slot
+    // exists
 
     const texture_data = TextureData.init(textures.items.len, raw_texture_data);
     textures.append(texture_data) catch unreachable; // TODO(Caleb): Handle error properly?
